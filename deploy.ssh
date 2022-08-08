@@ -1,0 +1,34 @@
+#!/bin/bash
+# Set up variables
+FLINK_DIRECTORY=<your flink directory>
+JOB_FILE_PATH=<path to job.jar>
+REGION=eu-central-1
+
+# Checking the version
+cdk --version
+helm version
+aws --version
+
+# Configuration of deployment
+npm run build
+cdk synth
+ACCOUNT_ID=$(aws sts get-caller-identity|jq -r ".Account")
+
+# Provision of all the defined resources
+cdk bootstrap aws://$ACCOUNT_ID/$REGION
+cdk deploy
+
+# Connecting to the new cluster
+aws eks --region $REGION update-kubeconfig --name demo-eks
+
+# Checking the connection
+kubectl config current-context
+
+# Deployment of helm charts
+cd helm
+helm install hello-kubernetes ./hello-kubernetes
+helm install flink ./flink
+
+# Deployment of Flink JOB
+cd $FLINK_DIRECTORY
+./bin/flink run --detached $JOB_FILE_PATH
